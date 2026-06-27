@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trener AM — egzamin teoretyczny</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__brand">
+    <span class="topbar__badge">AM</span>
+    <span class="topbar__title">Trener egzaminu teoretycznego</span>
+  </div>
+  <div class="topbar__actions">
+    <button class="btn btn--ghost" id="btn-eksport" title="Zapisz kopię stan.json na dysk">Eksport</button>
+    <button class="btn btn--ghost" id="btn-import-open" title="Wczytaj wcześniej zapisany stan.json">Import</button>
+    <button class="btn btn--ghost btn--danger" id="btn-reset-open" title="Wyzeruj cały postęp">Reset</button>
+    <input type="file" id="input-import" accept="application/json" hidden>
+  </div>
+</header>
+
+<main id="app">
+
+  <!-- ============ DASHBOARD ============ -->
+  <section id="ekran-dashboard" class="ekran">
+
+    <div class="hero">
+      <div class="hero__route">
+        <div class="hero__route-track">
+          <div class="hero__route-fill" id="hero-route-fill"></div>
+          <div class="hero__route-marker" id="hero-route-marker"></div>
+        </div>
+      </div>
+      <div class="hero__numbers">
+        <span class="hero__big" id="hero-zrobione">0</span>
+        <span class="hero__slash">/</span>
+        <span class="hero__total" id="hero-wszystkie">1516</span>
+        <span class="hero__label">pytań przejechanych</span>
+      </div>
+      <div class="hero__procent" id="hero-procent">0%</div>
+      <div class="hero__zostalo">
+        <span>w puli: <strong id="hero-podst">0</strong> podstawowych · <strong id="hero-spec">0</strong> specjalistycznych</span>
+      </div>
+    </div>
+
+    <div id="banner-ukonczone" class="banner banner--green hidden">
+      🏁 Wszystkie pytania, niezdane testy i błędne odpowiedzi rozliczone. Gratulacje — pula jest czysta!
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2 class="card__title">Skuteczność</h2>
+        <div class="stat-row"><span>Łącznie</span><strong id="sk-lacznie">—</strong></div>
+        <div class="stat-row"><span>Część podstawowa</span><strong id="sk-podst">—</strong></div>
+        <div class="stat-row"><span>Część specjalistyczna</span><strong id="sk-spec">—</strong></div>
+      </div>
+
+      <div class="card">
+        <h2 class="card__title">Testy egzaminacyjne</h2>
+        <div class="stat-row"><span>Zrobionych</span><strong id="t-zrobione">0</strong></div>
+        <div class="stat-row"><span>Zdanych</span><strong id="t-zdane">—</strong></div>
+        <div class="stat-row"><span>Zostało do końca puli</span><strong id="t-zostalo">0</strong></div>
+      </div>
+
+      <div class="card">
+        <h2 class="card__title">Pule naprawcze</h2>
+        <div class="stat-row"><span>Błędne odpowiedzi do powtórki</span><strong id="p-bledne">0</strong></div>
+        <div class="stat-row"><span>Niezdane testy do powtórki</span><strong id="p-niezdane">0</strong></div>
+      </div>
+
+      <div class="card card--wide">
+        <h2 class="card__title">Prognoza</h2>
+        <p id="prog-tekst" class="prog-tekst">Za mało danych — zrób kilka testów, żeby zobaczyć prognozę.</p>
+        <div class="kalkulator">
+          <label for="input-data-cel">Chcę skończyć do</label>
+          <input type="date" id="input-data-cel">
+          <button class="btn" id="btn-kalkulator">Policz tempo</button>
+          <span id="kalkulator-wynik"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="akcje-startowe">
+      <button class="btn btn--primary btn--lg" id="btn-nowy-test">Nowy test egzaminacyjny</button>
+      <button class="btn btn--lg" id="btn-test-bledne">Test błędnych odpowiedzi</button>
+      <button class="btn btn--lg" id="btn-powtorki">Powtórka niezdanego testu</button>
+    </div>
+
+  </section>
+
+  <!-- ============ LISTA NIEZDANYCH (modal) ============ -->
+  <div id="modal-niezdane" class="modal hidden">
+    <div class="modal__box">
+      <h2>Niezdane testy</h2>
+      <div id="lista-niezdanych" class="lista-niezdanych"></div>
+      <button class="btn" id="btn-niezdane-zamknij">Zamknij</button>
+    </div>
+  </div>
+
+  <!-- ============ POTWIERDZENIE RESETU ============ -->
+  <div id="modal-reset" class="modal hidden">
+    <div class="modal__box">
+      <h2>Wyzerować cały postęp?</h2>
+      <p>Usunie historię testów, pule błędnych i niezdanych odpowiedzi oraz przywróci wszystkie 1516 pytań do puli wejściowej. Tej operacji nie można odwrócić — zrób eksport, jeśli chcesz zachować kopię.</p>
+      <div class="modal__akcje">
+        <button class="btn" id="btn-reset-cancel">Anuluj</button>
+        <button class="btn btn--danger" id="btn-reset-confirm">Tak, wyzeruj</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ POTWIERDZENIE PRZERWANIA TESTU ============ -->
+  <div id="modal-przerwij" class="modal hidden">
+    <div class="modal__box">
+      <h2>Przerwać test?</h2>
+      <p>Pytania z tego testu wrócą do puli wejściowej, a wszelkie zmiany w puli błędnych odpowiedzi i statystykach dokonane w trakcie tego testu zostaną wycofane. Test nie zostanie zapisany w historii.</p>
+      <div class="modal__akcje">
+        <button class="btn" id="btn-przerwij-cancel">Anuluj</button>
+        <button class="btn btn--danger" id="btn-przerwij-confirm">Tak, przerwij</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ EKRAN TESTU ============ -->
+  <section id="ekran-test" class="ekran hidden">
+    <div class="test-pasek">
+      <span class="test-pasek__numer" id="test-numer">1 / 32</span>
+      <span class="test-pasek__czesc" id="test-czesc">Podstawowa</span>
+      <span class="test-pasek__punkty" id="test-punkty">3 pkt</span>
+      <div class="timer-disc" id="timer-disc"><span id="timer-tekst">25:00</span></div>
+      <button class="btn btn--danger test-pasek__przerwij" id="btn-przerwij-test">Przerwij test</button>
+    </div>
+
+    <div class="test-media" id="test-media"></div>
+
+    <div class="test-pytanie">
+      <p id="test-pytanie-tekst"></p>
+      <div class="test-odpowiedzi" id="test-odpowiedzi"></div>
+      <div class="test-feedback hidden" id="test-feedback"></div>
+      <button class="btn btn--primary btn--lg" id="btn-zatwierdz" disabled>Zatwierdź odpowiedź</button>
+    </div>
+  </section>
+
+  <!-- ============ EKRAN WYNIKU ============ -->
+  <section id="ekran-wynik" class="ekran hidden">
+    <div class="wynik-banner" id="wynik-banner">
+      <div class="wynik-banner__status" id="wynik-status">ZDANY</div>
+      <div class="wynik-banner__punkty"><span id="wynik-punkty">0</span> / <span id="wynik-max">0</span> pkt</div>
+      <div class="wynik-banner__prog">próg zdania: <span id="wynik-prog">0</span> pkt</div>
+    </div>
+    <div class="wynik-lista" id="wynik-lista"></div>
+    <button class="btn btn--primary btn--lg" id="btn-wynik-dashboard">Wróć do panelu</button>
+  </section>
+
+</main>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
